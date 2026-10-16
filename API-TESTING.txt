@@ -1,0 +1,13 @@
+Basic Postman sequence:
+1. Register instructor: POST /api/auth/registration
+   {"name":"Test Instructor","email":"instructor@test.com","password":"123456","Cpassword":"123456","role":"instructor"}
+2. Login instructor: POST /api/auth/login
+3. Admin login: admin@drivingschool.com / admin123 (create admin with `npm run seed`)
+4. Add category as admin: POST /api/category {"name":"Beginner Driving","description":"Basics"}
+5. Create course as instructor: POST /api/course with category ID and course fields.
+6. Submit course: PUT /api/course/COURSE_ID/submit
+7. Approve as admin: PUT /api/course/COURSE_ID/approve
+8. Register/login learner and join: POST /api/enrollment/join {"course":"COURSE_ID"}
+9. For paid course, POST /api/payment/make {"course":"COURSE_ID","status":"success"}
+10. Update progress: PUT /api/enrollment/ENROLLMENT_ID/progress {"progress":25}
+Send login token in header: Authorization: Bearer YOUR_TOKEN
