@@ -1,631 +1,411 @@
-# JWT Login + Profile API
+# 🚗 Driving School Management System API
 
-A REST API project built with **Node.js, Express.js, MongoDB, Mongoose,
-and JSON Web Token (JWT)**. This project demonstrates the basic
-authentication flow used in many web applications: a user can register,
-log in, receive a token, and use that token to access a protected
-profile endpoint.
+A RESTful backend API for running an online driving school. Instructors create and publish driving courses, admins review and approve them, and learners enroll, pay, and track their progress — all secured with JWT authentication and role-based access control.
 
-This project is suitable for beginners who want to understand backend
-development, REST APIs, password hashing, authentication middleware,
-database operations, and API testing with Postman.
+> **Note:** This is a learning/demo project. Payment is **simulated**; no real payment gateway is connected.
 
-------------------------------------------------------------------------
+---
 
-## Table of Contents
+## 📑 Table of Contents
 
-1.  [Project Overview](#project-overview)
-2.  [Project Objectives](#project-objectives)
-3.  [Features](#features)
-4.  [Technologies Used](#technologies-used)
-5.  [Project Folder Structure](#project-folder-structure)
-6.  [How the API Works](#how-the-api-works)
-7.  [Installation and Setup](#installation-and-setup)
-8.  [Environment Variables](#environment-variables)
-9.  [Running the Project](#running-the-project)
-10. [API Endpoints](#api-endpoints)
-11. [Testing with Postman](#testing-with-postman)
-12. [Important Code Concepts](#important-code-concepts)
-13. [Common Errors and Solutions](#common-errors-and-solutions)
-14. [Security Notes](#security-notes)
-15. [Future Improvements](#future-improvements)
-16. [Author / Project Purpose](#author--project-purpose)
+1. [Features](#-features)
+2. [Tech Stack](#-tech-stack)
+3. [User Roles](#-user-roles)
+4. [Project Structure](#-project-structure)
+5. [Architecture & Request Flow](#-architecture--request-flow)
+6. [Getting Started](#-getting-started)
+7. [Environment Variables](#-environment-variables)
+8. [Authentication](#-authentication)
+9. [Course Lifecycle](#-course-lifecycle)
+10. [API Reference](#-api-reference)
+11. [End-to-End Testing Walkthrough (Postman)](#-end-to-end-testing-walkthrough-postman)
+12. [Error Handling](#-error-handling)
+13. [Future Improvements](#-future-improvements)
+14. [License](#-license)
 
-------------------------------------------------------------------------
+---
 
-## 1. Project Overview
+## ✨ Features
 
-The **JWT Login + Profile API** is a backend application that provides
-user registration, login, and protected profile functionality.
+- 🔐 **JWT authentication** with hashed passwords (bcrypt)
+- 👥 **Three roles** — Admin, Instructor, Learner — each with their own permissions
+- 🗂️ **Course categories** managed by admins (e.g. *Beginner Driving*, *Highway Driving*)
+- 📚 **Course management** by instructors with a built-in **approval workflow** (draft → submitted → approved / rejected)
+- 🧩 **Modules** inside each course, with ordering/reordering support
+- 🎓 **Enrollment** for learners, including **progress tracking** (0–100%)
+- 💳 **Simulated payments** for paid courses
+- 🙍 **Profiles** for instructors and learners
+- 🛡️ **Admin tools** to list users and activate/deactivate accounts
 
-When a new user registers, the API validates the submitted details and
-stores the user in MongoDB. The password is hashed using `bcryptjs`
-before it is saved, so the original plain-text password is not stored in
-the database.
+---
 
-When the user logs in, the API checks the submitted email and password
-against the stored user record. If the credentials are correct, the
-server generates a JSON Web Token (JWT). The client can then send this
-token to access the protected profile endpoint.
+## 🛠 Tech Stack
 
-The API is built with Express.js, which handles HTTP requests and
-routes. Mongoose is used to define the user schema and communicate with
-MongoDB.
+| Layer            | Technology                  |
+| ---------------- | --------------------------- |
+| Runtime          | Node.js                     |
+| Framework        | Express.js 4                |
+| Database         | MongoDB                     |
+| ODM              | Mongoose 8                  |
+| Authentication   | JSON Web Tokens (`jsonwebtoken`) |
+| Password hashing | `bcrypt`                    |
+| Config           | `dotenv`                    |
+| Body parsing     | `express.json()` + `body-parser` |
+| Dev tooling      | `nodemon`                   |
 
-### Main workflow
+---
 
-``` text
-User
- |
- | Register with name, email, password
- v
-POST /api/auth/register
- |
- v
-Validate data -> Hash password -> Save user in MongoDB
- |
- v
-POST /api/auth/login
- |
- v
-Verify email and password -> Generate JWT
- |
- v
-GET /api/auth/profile + Bearer token
- |
- v
-Verify JWT -> Fetch user profile -> Return profile data
+## 👥 User Roles
+
+| Role           | What they can do |
+| -------------- | ---------------- |
+| **Admin**      | Create categories, list all users, activate/deactivate users, approve or reject submitted courses |
+| **Instructor** | Create courses, submit them for approval, manage modules, view their own courses, create an instructor profile |
+| **Learner**    | Browse approved courses, enroll, pay for paid courses, update progress, create a learner profile |
+
+**Example:**
+- *Test Instructor* creates the course **"Basics of City Driving"** and submits it.
+- *Admin* reviews it and approves it.
+- *Rahul (learner)* enrolls, pays, and updates his progress to 25%.
+
+---
+
+## 📁 Project Structure
+
 ```
-
-------------------------------------------------------------------------
-
-## 2. Project Objectives
-
-The main objectives of this project are:
-
--   To understand how to create a REST API using Node.js and Express.js.
--   To connect a Node.js application with MongoDB using Mongoose.
--   To register a user and store their details in a database.
--   To hash passwords securely using `bcryptjs`.
--   To authenticate users with email and password.
--   To generate and verify JSON Web Tokens.
--   To protect routes with authentication middleware.
--   To test API endpoints using Postman.
--   To understand how different backend files work together.
-
-------------------------------------------------------------------------
-
-## 3. Features
-
-### User Registration
-
-A new user can register by providing their name, email address, and
-password. The API checks the required fields and prevents registration
-with an email address that is already registered.
-
-### Password Hashing
-
-Passwords are hashed before being stored in MongoDB. The application
-uses `bcryptjs` for password hashing and comparison.
-
-### User Login
-
-A registered user can log in with their email and password. The API
-compares the submitted password with the stored password hash.
-
-### JWT Token Generation
-
-After a successful login, the API creates a JWT token. This token is
-used to prove that the user has authenticated successfully.
-
-### Protected Profile Route
-
-The profile endpoint requires a valid JWT token. If the token is
-missing, invalid, or expired, the API returns an unauthorized response.
-
-### MongoDB Integration
-
-User information is stored in MongoDB using a Mongoose model.
-
-### Postman Testing
-
-The API can be tested with Postman without creating a frontend
-application.
-
-------------------------------------------------------------------------
-
-## 4. Technologies Used
-
-  -----------------------------------------------------------------------
-  Technology                          Purpose
-  ----------------------------------- -----------------------------------
-  Node.js                             Runs JavaScript on the server
-
-  Express.js                          Creates the server and handles API
-                                      routes
-
-  MongoDB                             Stores user information
-
-  Mongoose                            Defines the user schema and
-                                      communicates with MongoDB
-
-  JSON Web Token (`jsonwebtoken`)     Creates and verifies authentication
-                                      tokens
-
-  `bcryptjs`                          Hashes passwords and compares
-                                      password hashes
-
-  `dotenv`                            Loads environment variables from
-                                      the `.env` file
-
-  Nodemon                             Restarts the server automatically
-                                      during development
-
-  Postman                             Sends requests to test the API
-  -----------------------------------------------------------------------
-
-------------------------------------------------------------------------
-
-## 5. Project Folder Structure
-
-``` text
-jwt-profile-api/
-│
+driving-school-management-system-api/
 ├── config/
-│   └── db.js
-│
-├── controllers/
-│   └── authController.js
-│
-├── middleware/
-│   └── authMiddleware.js
-│
-├── models/
-│   └── userModel.js
-│
+│   └── db.js                 # MongoDB connection
+├── controllers/              # Business logic for each resource
+├── middleware/               # Auth (JWT) and role-check middleware
+├── models/                   # Mongoose schemas
 ├── routes/
-│   └── authRoutes.js
-│
-├── .env
+│   └── index.js              # Main router, mounts all resource routes
+├── server.js                 # App entry point
 ├── package.json
-└── server.js
+├── API-TESTING.txt           # Quick Postman sequence
+├── .env                      # Environment variables (not committed)
+└── README.md
 ```
 
-### File descriptions
+### What each folder does
 
--   **`server.js`** --- Loads environment variables, creates the Express
-    app, registers middleware and routes, connects to MongoDB, and
-    starts the server.
--   **`config/db.js`** --- Contains the MongoDB connection function.
--   **`models/userModel.js`** --- Defines the user schema, including
-    name, email, and password.
--   **`controllers/authController.js`** --- Contains the registration,
-    login, and profile logic.
--   **`routes/authRoutes.js`** --- Maps HTTP endpoints to controller
-    functions.
--   **`middleware/authMiddleware.js`** --- Reads and verifies the JWT
-    token before allowing access to the protected profile route.
--   **`.env`** --- Stores configuration values such as the port, MongoDB
-    URI, and JWT secret.
--   **`package.json`** --- Lists project dependencies and scripts.
+| Folder / File | Responsibility | Example |
+| ------------- | -------------- | ------- |
+| `server.js` | Loads env, connects to DB, registers middleware and the `/api` router, starts the server | Starts on `http://localhost:3000` |
+| `config/` | Database connection setup | Connects to `mongodb://127.0.0.1:27017/driving_school` |
+| `routes/` | Maps URL + HTTP method to a controller function and attaches middleware | `POST /api/course` → course controller, only for instructors |
+| `middleware/` | Runs before controllers: verifies the JWT token and checks the user's role | Blocks a learner from calling `POST /api/category` |
+| `controllers/` | Reads the request, talks to the models, sends the response | Creating a course, approving a course, joining a course |
+| `models/` | Mongoose schemas that define the data stored in MongoDB | User, Category, Course, Module, Enrollment, Payment, profiles |
 
-------------------------------------------------------------------------
+---
 
-## 6. How the API Works
+## 🔄 Architecture & Request Flow
 
-### Step 1: Registration
+The project follows a simple, layered pattern:
 
-The client sends a `POST` request to `/api/auth/register` with a name,
-email, and password.
+```
+server.js  →  routes/index.js  →  routes  →  controllers  →  models  →  MongoDB
+```
 
-The registration controller: 1. Checks that all required fields are
-present. 2. Checks whether the email is already registered. 3. Hashes
-the password using `bcryptjs`. 4. Creates a user record in MongoDB. 5.
-Returns the user's basic details without returning the password.
+### Request lifecycle
 
-### Step 2: Login
+```mermaid
+flowchart LR
+    A[Client / Postman] --> B[server.js<br/>express.json + body parser]
+    B --> C[/api → routes/index.js/]
+    C --> D[Resource route<br/>e.g. /course]
+    D --> E[Auth middleware<br/>verify JWT]
+    E --> F[Role middleware<br/>admin / instructor / learner]
+    F --> G[Controller]
+    G --> H[(Mongoose Model → MongoDB)]
+    H --> G
+    G --> A
+```
 
-The client sends a `POST` request to `/api/auth/login` with an email and
-password.
+### Step-by-step example: an instructor creates a course
 
-The login controller: 1. Finds the user by email. 2. Compares the
-submitted password with the stored password hash. 3. Returns an error if
-the credentials are incorrect. 4. Creates a JWT token if the credentials
-are correct. 5. Returns the token to the client.
+1. Client sends `POST /api/course` with header `Authorization: Bearer <token>` and a JSON body.
+2. `server.js` parses the JSON body and forwards anything under `/api` to `routes/index.js`.
+3. `routes/index.js` forwards `/course` requests to the course routes.
+4. The **auth middleware** verifies the token and identifies the user.
+5. The **role middleware** confirms the user is an `instructor`. A learner would get a rejection here.
+6. The **course controller** validates the data and saves the course through the Course model.
+7. The API responds with the created course.
 
-### Step 3: Access the Profile
+---
 
-The client sends a `GET` request to `/api/auth/profile` and includes the
-token in the request's `Authorization` header.
-
-The authentication middleware: 1. Checks that the header contains a
-Bearer token. 2. Extracts the token. 3. Verifies the token using the JWT
-secret. 4. Makes the decoded token data available through `req.user`. 5.
-Calls `next()` to allow the request to continue.
-
-The profile controller then finds the user in MongoDB and returns the
-profile information without the password.
-
-------------------------------------------------------------------------
-
-## 7. Installation and Setup
+## 🚀 Getting Started
 
 ### Prerequisites
 
-Install or prepare the following:
+- [Node.js](https://nodejs.org/) (v16 or higher recommended)
+- [MongoDB](https://www.mongodb.com/try/download/community) running locally (or a MongoDB Atlas URI)
+- [Postman](https://www.postman.com/) for testing (optional)
 
--   **Node.js and npm:** Download from
-    [nodejs.org](https://nodejs.org/).
--   **MongoDB:** Run MongoDB locally or prepare a valid MongoDB
-    connection URI.
--   **Postman:** Download from
-    [postman.com](https://www.postman.com/downloads/) to test the API.
--   **Code editor:** Visual Studio Code or another editor.
+### Installation
 
-### Step 1: Open the project
+```bash
+# 1. Clone the repository
+git clone https://github.com/<your-username>/driving-school-management-system-api.git
 
-Download the project ZIP from the repository and extract it, or clone
-the repository:
+# 2. Go into the project folder
+cd driving-school-management-system-api
 
-``` bash
-git clone YOUR_REPOSITORY_URL
-cd jwt-profile-api
-```
-
-Replace `YOUR_REPOSITORY_URL` with your actual GitHub repository URL.
-The folder name may differ depending on how you downloaded the project.
-
-### Step 2: Install dependencies
-
-Open a terminal inside the project folder and run:
-
-``` bash
+# 3. Install dependencies
 npm install
+
+# 4. Create your environment file (see next section)
+#    then make sure MongoDB is running
+
+# 5. Start the server
+npm run dev      # development (auto-restart with nodemon)
+# or
+npm start        # production
 ```
 
-This command reads `package.json` and installs the packages required by
-the application.
+If everything works you will see:
 
-### Step 3: Configure MongoDB and environment variables
-
-Open the `.env` file and confirm that the values are correct. See the
-next section for details.
-
-### Step 4: Start the server
-
-Run the development command:
-
-``` bash
-npm run dev
+```
+server port started on http://localhost:3000
 ```
 
-If you prefer to run without Nodemon, use:
+### Available scripts
 
-``` bash
-npm start
-```
+| Command       | Description                         |
+| ------------- | ----------------------------------- |
+| `npm start`   | Runs `node server.js`               |
+| `npm run dev` | Runs the server with `nodemon`      |
 
-The server starts after a successful database connection. By default,
-the API uses port `3000`.
+---
 
-------------------------------------------------------------------------
+## 🔧 Environment Variables
 
-## 8. Environment Variables
+Create a `.env` file in the project root:
 
-The application uses a `.env` file for configuration.
-
-Example values:
-
-``` env
+```env
 PORT=3000
-MONGO_URL=mongodb://127.0.0.1:27017/jwt_profile_db
-JWT_SECRET=replace_this_with_a_long_random_secret
+DEV_DB_URL="mongodb://127.0.0.1:27017/driving_school"
+JWT_SECRET="replace_with_a_long_random_secret"
 ```
 
-  Variable       Description
-  -------------- -------------------------------------------
-  `PORT`         Port on which the Express server listens
-  `MONGO_URL`    MongoDB connection URI
-  `JWT_SECRET`   Secret used to sign and verify JWT tokens
+| Variable     | Description                               | Example |
+| ------------ | ----------------------------------------- | ------- |
+| `PORT`       | Port the server listens on (default 3000) | `3000`  |
+| `DEV_DB_URL` | MongoDB connection string                 | `mongodb://127.0.0.1:27017/driving_school` |
+| `JWT_SECRET` | Secret key used to sign and verify tokens | a long random string |
 
-**Important:** The values above are examples for local development.
-Replace the JWT secret with a long, random value. Never publish real
-secrets, passwords, or production database credentials in a public
-repository. Before publishing, add `.env` to `.gitignore` and, if
-useful, commit an `.env.example` file containing only placeholder
-values.
+> ⚠️ **Never commit your real `.env` file.** Add `.env` to `.gitignore` and use a strong, unique `JWT_SECRET`.
 
-------------------------------------------------------------------------
+---
 
-## 9. Running the Project
+## 🔑 Authentication
 
-When the database connection succeeds, the terminal should show messages
-similar to:
+The API uses **Bearer token** authentication.
 
-``` text
-Database connected
-Server running on http://localhost:3000
+1. Register with `POST /api/auth/registration`.
+2. Log in with `POST /api/auth/login` and copy the token from the response.
+3. Send the token on every protected request:
+
+```
+Authorization: Bearer YOUR_TOKEN
 ```
 
-If the database does not connect, the server will not start. Confirm
-that MongoDB is running and that `MONGO_URL` is correct.
+**Example registration body**
 
-The base URL for authentication endpoints is:
-
-``` text
-http://localhost:3000/api/auth
-```
-
-------------------------------------------------------------------------
-
-## 10. API Endpoints
-
-  ----------------------------------------------------------------------------
-  Method            Endpoint               Purpose           Authentication
-  ----------------- ---------------------- ----------------- -----------------
-  `POST`            `/api/auth/register`   Register a new    Not required
-                                           user              
-
-  `POST`            `/api/auth/login`      Authenticate and  Not required
-                                           receive a token   
-
-  `GET`             `/api/auth/profile`    Retrieve the      Required
-                                           authenticated     
-                                           user's profile    
-  ----------------------------------------------------------------------------
-
-### A. Register a User
-
-**Method:** `POST`
-
-**URL:**
-
-``` text
-http://localhost:3000/api/auth/register
-```
-
-In Postman, select **Body → raw → JSON** and enter:
-
-``` json
+```json
 {
-  "name": "Riya",
-  "email": "riya@example.com",
+  "name": "Test Instructor",
+  "email": "instructor@test.com",
+  "password": "123456",
+  "Cpassword": "123456",
+  "role": "instructor"
+}
+```
+
+`Cpassword` is the confirm-password field and must match `password`. The `role` is one of `instructor` or `learner`; admin accounts are created with the seed script.
+
+**Example login body**
+
+```json
+{
+  "email": "instructor@test.com",
   "password": "123456"
 }
 ```
 
-The API validates the required fields, checks for an existing email,
-hashes the password, and creates the user in MongoDB.
+---
 
-A successful response contains basic user details. The password should
-not be returned.
+## 🔁 Course Lifecycle
 
-Possible errors include missing required fields or an email address that
-is already registered.
+Every course passes through an approval workflow before learners can see it.
 
-### B. Login
-
-**Method:** `POST`
-
-**URL:**
-
-``` text
-http://localhost:3000/api/auth/login
+```mermaid
+stateDiagram-v2
+    [*] --> Draft: Instructor creates course
+    Draft --> Submitted: PUT /course/:id/submit
+    Submitted --> Approved: Admin approves
+    Submitted --> Rejected: Admin rejects (with reason)
+    Rejected --> Draft: Instructor edits and resubmits
+    Approved --> [*]
 ```
 
-JSON body:
+**Example:**
+1. Instructor creates *"Beginner Driving 101"* → **draft**
+2. Instructor calls `PUT /api/course/<id>/submit` → **submitted**
+3. Admin calls `PUT /api/course/<id>/reject` with `{"reason":"Please update course details"}` → **rejected**
+4. Instructor fixes the details and submits again → **submitted**
+5. Admin calls `PUT /api/course/<id>/approve` → **approved** and visible to learners
 
-``` json
+---
+
+## 📡 API Reference
+
+**Base URL:** `http://localhost:3000/api`
+
+### Auth
+
+| Method | Endpoint             | Access | Description |
+| ------ | -------------------- | ------ | ----------- |
+| POST   | `/auth/registration` | Public | Create a new account |
+| POST   | `/auth/login`        | Public | Log in and receive a JWT |
+
+### Users (Admin)
+
+| Method | Endpoint            | Access | Description |
+| ------ | ------------------- | ------ | ----------- |
+| GET    | `/user`             | Admin  | List all users |
+| PUT    | `/user/:id/status`  | Admin  | Activate or deactivate a user |
+
+```json
+// PUT /api/user/:id/status
+{ "status": "inactive" }
+```
+
+### Profiles
+
+| Method | Endpoint             | Access     | Description |
+| ------ | -------------------- | ---------- | ----------- |
+| POST   | `/instructorProfile` | Instructor | Create an instructor profile |
+| POST   | `/learnerProfile`    | Learner    | Create a learner profile |
+
+### Categories
+
+| Method | Endpoint    | Access | Description |
+| ------ | ----------- | ------ | ----------- |
+| POST   | `/category` | Admin  | Create a category |
+| GET    | `/category` | Public / Authenticated | List all categories |
+
+```json
+// POST /api/category
 {
-  "email": "riya@example.com",
-  "password": "123456"
+  "name": "Beginner Driving",
+  "description": "Basics"
 }
 ```
 
-If the email and password are correct, the response includes a JWT
-token. Copy the token from the response for the next step.
+### Courses
 
-If the credentials are incorrect, the API returns an error response.
+| Method | Endpoint               | Access     | Description |
+| ------ | ---------------------- | ---------- | ----------- |
+| POST   | `/course`              | Instructor | Create a course (needs a category ID) |
+| GET    | `/course`              | Authenticated | List courses |
+| GET    | `/course/my`           | Instructor | List the instructor's own courses |
+| PUT    | `/course/:id/submit`   | Instructor | Submit a course for admin review |
+| PUT    | `/course/:id/approve`  | Admin      | Approve a submitted course |
+| PUT    | `/course/:id/reject`   | Admin      | Reject a course with a reason |
 
-### C. Get the User Profile
-
-**Method:** `GET`
-
-**URL:**
-
-``` text
-http://localhost:3000/api/auth/profile
+```json
+// PUT /api/course/:id/reject
+{ "reason": "Please update course details" }
 ```
 
-This route is protected. It requires the token received from the login
-endpoint.
+### Modules
 
-In Postman:
+| Method | Endpoint                    | Access     | Description |
+| ------ | --------------------------- | ---------- | ----------- |
+| POST   | `/module`                   | Instructor | Add a module to a course |
+| GET    | `/module/course/:courseId`  | Authenticated | List modules of a course |
+| PUT    | `/module/:id`               | Instructor | Update a module or reorder it using `order` |
+| DELETE | `/module/:id`               | Instructor | Delete a module |
 
-1.  Open a new request and select **GET**.
-2.  Enter the profile URL.
-3.  Open the **Authorization** tab.
-4.  Choose **Bearer Token** as the type.
-5.  Paste the JWT token into the token field.
-6.  Click **Send**.
+**Example:** A course *"City Driving Basics"* can have modules ordered `1` *Traffic Signs*, `2` *Clutch Control*, `3` *Parking*. Updating *Parking* to `order: 2` reorders it.
 
-Alternatively, the request header can be written as:
+### Enrollment
 
-``` text
-Authorization: Bearer YOUR_JWT_TOKEN
+| Method | Endpoint                     | Access  | Description |
+| ------ | ---------------------------- | ------- | ----------- |
+| POST   | `/enrollment/join`           | Learner | Join a course |
+| PUT    | `/enrollment/:id/progress`   | Learner | Update course progress |
+
+```json
+// POST /api/enrollment/join
+{ "course": "COURSE_ID" }
+
+// PUT /api/enrollment/ENROLLMENT_ID/progress
+{ "progress": 50 }
 ```
 
-If the token is valid and the user exists, the API returns the user's
-profile details without the password. A missing, invalid, or expired
-token results in an unauthorized response.
+### Payment (simulated)
 
-------------------------------------------------------------------------
+| Method | Endpoint         | Access  | Description |
+| ------ | ---------------- | ------- | ----------- |
+| POST   | `/payment/make`  | Learner | Make a demo payment for a paid course |
 
-## 11. Testing with Postman
-
-Follow this sequence when testing the API for the first time:
-
-1.  Start MongoDB.
-2.  Start the Node.js server with `npm run dev`.
-3.  Register a new user using the register endpoint.
-4.  Log in with the same email and password.
-5.  Copy the JWT token from the login response.
-6.  Call the profile endpoint with the Bearer token.
-7.  Try the profile endpoint without a token to confirm that access is
-    protected.
-8.  Try logging in with an incorrect password to test the error
-    response.
-
-Use a unique email address for each new registration test, because
-duplicate email addresses are rejected.
-
-------------------------------------------------------------------------
-
-## 12. Important Code Concepts
-
-### REST API
-
-A REST API allows a client and server to communicate through HTTP
-requests. This project uses `POST` for registration and login, and `GET`
-for retrieving profile data.
-
-### Express Router
-
-The router keeps endpoint definitions organized in
-`routes/authRoutes.js` instead of placing all route logic in
-`server.js`.
-
-### Controller
-
-Controllers contain the main logic for handling a request, such as
-validating input, checking credentials, creating a token, and returning
-a response.
-
-### Mongoose Model
-
-The user model defines the fields stored for a user and their data
-types. Mongoose helps the application interact with MongoDB.
-
-### Password Hashing
-
-Hashing converts a password into a one-way representation. The
-application uses `bcryptjs` to hash a password during registration and
-compare a submitted password during login. It does not need to decrypt
-the stored hash.
-
-### JWT Authentication
-
-A JSON Web Token carries signed information that the server can verify.
-In this project, the token identifies the user and expires after a
-limited period. A token is not a substitute for protecting the secret
-used to sign it.
-
-### Middleware
-
-Middleware runs during the request-response cycle. Here, authentication
-middleware checks the token before the protected profile controller
-runs. `next()` passes control to the next function when authentication
-succeeds.
-
-### Environment Variables
-
-Environment variables keep configuration separate from the source code.
-The `dotenv` package loads local values from `.env` into `process.env`.
-
-------------------------------------------------------------------------
-
-## 13. Common Errors and Solutions
-
-### `Database not connected`
-
--   Make sure MongoDB is running.
--   Check the `MONGO_URL` value in `.env`.
--   Confirm that the database service is accessible.
-
-### `Cannot find module`
-
-Run this command from the project folder:
-
-``` bash
-npm install
+```json
+// POST /api/payment/make
+{
+  "course": "COURSE_ID",
+  "status": "success"
+}
 ```
 
-Also check that the terminal is opened in the correct folder.
+---
 
-### `npm run dev` does not work
+## 🧪 End-to-End Testing Walkthrough (Postman)
 
-Confirm that `package.json` contains the `dev` script and that
-dependencies installed successfully. You can try:
+Follow this sequence to test the whole system:
 
-``` bash
-npm start
-```
+| #  | Action                       | Request |
+| -- | ---------------------------- | ------- |
+| 1  | Register an instructor       | `POST /api/auth/registration` |
+| 2  | Log in as instructor         | `POST /api/auth/login` |
+| 3  | Log in as admin              | Default admin: `admin@drivingschool.com` / `admin123` (created with the seed script) |
+| 4  | Create a category (admin)    | `POST /api/category` → `{"name":"Beginner Driving","description":"Basics"}` |
+| 5  | Create a course (instructor) | `POST /api/course` with the category ID and course fields |
+| 6  | Submit the course            | `PUT /api/course/COURSE_ID/submit` |
+| 7  | Approve the course (admin)   | `PUT /api/course/COURSE_ID/approve` |
+| 8  | Register/login a learner and join | `POST /api/enrollment/join` → `{"course":"COURSE_ID"}` |
+| 9  | Pay (for paid courses)       | `POST /api/payment/make` → `{"course":"COURSE_ID","status":"success"}` |
+| 10 | Update progress              | `PUT /api/enrollment/ENROLLMENT_ID/progress` → `{"progress":25}` |
 
-### `EADDRINUSE: address already in use`
+Remember to add `Authorization: Bearer YOUR_TOKEN` to every request after logging in, using the token that belongs to the role being tested.
 
-Another process may already be using port `3000`. Stop the other server
-or change the `PORT` value in `.env`.
+> ⚠️ Change the default admin password immediately if you ever deploy this project.
 
-### `Invalid or expired token`
+---
 
-Log in again and use the newly returned token. Ensure that the
-Authorization type is **Bearer Token** and that the token has been
-copied correctly.
+## ⚠️ Error Handling
 
-### `Access denied. Please login first`
+| Status | Meaning | Typical cause |
+| ------ | ------- | ------------- |
+| `400`  | Bad request | Missing fields, passwords don't match |
+| `401`  | Unauthorized | Missing, invalid or expired token |
+| `403`  | Forbidden | Your role isn't allowed (e.g. a learner creating a category) |
+| `404`  | Not found | Invalid course, module or enrollment ID |
+| `500`  | Server error | Unexpected error or database problem |
 
-The profile route requires an Authorization header containing a Bearer
-token. Log in first, then send the token with the profile request.
+---
 
-### Email already registered
+## 🔮 Future Improvements
 
-Use a different email address for a new registration, or log in with the
-existing account.
+- Integrate a real payment gateway (Razorpay / Stripe)
+- Lesson booking and instructor availability scheduling
+- Vehicle and license-test management
+- Certificates on course completion
+- Input validation with `Joi` or `express-validator`
+- Rate limiting and Helmet for extra security
+- Swagger / OpenAPI documentation
+- Unit and integration tests
 
-------------------------------------------------------------------------
-
-## 14. Security Notes
-
-This is a learning project and should be reviewed before production use.
-
--   Do not store plain-text passwords; this project uses password
-    hashing.
--   Never expose the JWT secret or database credentials in a public
-    GitHub repository.
--   Use a long, randomly generated JWT secret.
--   Keep `.env` out of version control and provide placeholders in
-    `.env.example` if necessary.
--   Use HTTPS when deploying publicly.
--   Add stronger input validation, rate limiting, and appropriate error
-    handling before production use.
--   Do not share your JWT token; anyone holding a valid token may be
-    able to use it until it expires.
-
-------------------------------------------------------------------------
-
-## 15. Future Improvements
-
-Possible features to add later:
-
--   Email verification
--   Forgot-password and reset-password flow
--   Update profile endpoint
--   Logout/token revocation strategy
--   Role-based authorization for admin and normal users
--   Stronger input validation
--   Rate limiting for login attempts
--   Automated API tests
--   Deployment to a hosting provider
-
-------------------------------------------------------------------------
-
-## 16. Author / Project Purpose
-
-**Project:** JWT Login + Profile API
-
-**Purpose:** A learning project to practise backend development and
-authentication using Node.js, Express.js, MongoDB, and JWT.
-
-This project demonstrates the core flow of user registration, login,
-token generation, and protected profile access. It can be extended with
-additional authentication features as backend skills improve.
